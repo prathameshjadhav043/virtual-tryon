@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
-import { Download, RotateCcw, Sparkles, SplitSquareVertical, Eye, ShieldCheck } from 'lucide-react';
+import {
+  Download,
+  RotateCcw,
+  Sparkles,
+  SlidersHorizontal,
+  LayoutGrid,
+  Maximize2,
+  ShieldCheck,
+  Check,
+} from 'lucide-react';
 import type { ProcessedImage } from '../lib/image-processor';
+import { BeforeAfterSlider } from './BeforeAfterSlider';
 
 interface ResultSectionProps {
   resultUrl: string;
@@ -17,63 +27,80 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
   modelSpace,
   onReset,
 }) => {
-  const [viewMode, setViewMode] = useState<'result' | 'comparison'>('result');
+  const [viewMode, setViewMode] = useState<'slider' | 'side-by-side' | 'spotlight'>('slider');
+  const [copied, setCopied] = useState<boolean>(false);
 
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = resultUrl;
-    link.download = `tryon-result-${Date.now()}.png`;
+    link.download = `atelier-tryon-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <section className="result-section" id="result-view" aria-label="Try-On Result Showcase">
+    <section className="result-section" id="result-view" aria-label="Atelier Try-On Showcase">
       <div className="result-card">
+        {/* Header */}
         <div className="result-header">
           <div className="result-title-group">
-            <div className="sparkle-badge">
-              <Sparkles size={18} className="text-accent" />
+            <div className="gold-accent-badge">
+              <Sparkles size={16} className="text-gold" />
             </div>
             <div>
-              <h2 className="result-title">Your AI Try-On Result</h2>
+              <h2 className="result-title">Atelier Synthesis Complete</h2>
               <p className="result-subtitle">
-                Synthesized by {modelSpace || 'IDM-VTON'} • 100% ephemeral in-memory rendering
+                Rendered with high-fidelity diffusion ({modelSpace || 'IDM-VTON'}) • Ephemeral In-Memory Buffer
               </p>
             </div>
           </div>
 
           <div className="result-actions">
+            {/* View Mode Switcher */}
             <div className="view-toggle-group">
+              {personImage && (
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === 'slider' ? 'active' : ''}`}
+                  onClick={() => setViewMode('slider')}
+                  title="Interactive Before/After Slider"
+                >
+                  <SlidersHorizontal size={14} />
+                  <span>Split Slider</span>
+                </button>
+              )}
               <button
                 type="button"
-                className={`toggle-btn ${viewMode === 'result' ? 'active' : ''}`}
-                onClick={() => setViewMode('result')}
-                title="View Result"
+                className={`toggle-btn ${viewMode === 'side-by-side' ? 'active' : ''}`}
+                onClick={() => setViewMode('side-by-side')}
+                title="Side by Side Comparison"
               >
-                <Eye size={15} />
-                <span>Result</span>
+                <LayoutGrid size={14} />
+                <span>Gallery</span>
               </button>
               <button
                 type="button"
-                className={`toggle-btn ${viewMode === 'comparison' ? 'active' : ''}`}
-                onClick={() => setViewMode('comparison')}
-                title="Compare with Original"
+                className={`toggle-btn ${viewMode === 'spotlight' ? 'active' : ''}`}
+                onClick={() => setViewMode('spotlight')}
+                title="Spotlight Single View"
               >
-                <SplitSquareVertical size={15} />
-                <span>Comparison</span>
+                <Maximize2 size={14} />
+                <span>Spotlight</span>
               </button>
             </div>
 
+            {/* Action Buttons */}
             <button
               type="button"
-              className="action-btn download-btn"
+              className="action-btn luxury-download-btn"
               onClick={handleDownload}
-              title="Download Result Image"
+              title="Download Master Image"
             >
-              <Download size={16} />
-              <span>Download</span>
+              {copied ? <Check size={16} /> : <Download size={16} />}
+              <span>{copied ? 'Saved' : 'Export Look'}</span>
             </button>
 
             <button
@@ -82,48 +109,66 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
               onClick={onReset}
               title="Try another garment"
             >
-              <RotateCcw size={16} />
-              <span>Try Another</span>
+              <RotateCcw size={15} />
+              <span>New Fitting</span>
             </button>
           </div>
         </div>
 
+        {/* Display Canvas */}
         <div className="result-display-area">
-          {viewMode === 'result' ? (
-            <div className="single-result-frame">
-              <img src={resultUrl} alt="AI Virtual Try-On Result" className="result-main-image" />
+          {viewMode === 'slider' && personImage ? (
+            <div className="slider-wrapper">
+              <BeforeAfterSlider
+                beforeImage={personImage.dataUrl}
+                afterImage={resultUrl}
+                beforeLabel="Original Silhouette"
+                afterLabel="Atelier Haute Couture"
+              />
+              <p className="slider-instruction">
+                Drag the divider or use keyboard arrows to inspect garment draping and texture integration
+              </p>
             </div>
-          ) : (
+          ) : viewMode === 'side-by-side' ? (
             <div className="comparison-grid">
               {personImage && (
                 <div className="comparison-item">
-                  <span className="comparison-label">Original Photo</span>
+                  <span className="comparison-label">01. Silhouette</span>
                   <div className="comparison-frame">
-                    <img src={personImage.dataUrl} alt="Original User" />
+                    <img src={personImage.dataUrl} alt="Original Silhouette" />
                   </div>
                 </div>
               )}
               {garmentImage && (
                 <div className="comparison-item">
-                  <span className="comparison-label">Selected Garment</span>
+                  <span className="comparison-label">02. Garment Piece</span>
                   <div className="comparison-frame">
-                    <img src={garmentImage.dataUrl} alt="Garment Product" />
+                    <img src={garmentImage.dataUrl} alt="Selected Garment Piece" />
                   </div>
                 </div>
               )}
               <div className="comparison-item highlight-item">
-                <span className="comparison-label highlight-label">AI Try-On Result</span>
+                <span className="comparison-label highlight-label">
+                  <Sparkles size={11} className="text-gold" /> 03. Atelier Result
+                </span>
                 <div className="comparison-frame">
-                  <img src={resultUrl} alt="AI Try-On Result" />
+                  <img src={resultUrl} alt="Atelier Haute Couture Result" />
                 </div>
               </div>
+            </div>
+          ) : (
+            <div className="single-result-frame">
+              <img src={resultUrl} alt="AI Virtual Try-On Result" className="result-main-image" />
             </div>
           )}
         </div>
 
+        {/* Ephemeral Privacy Footer */}
         <div className="result-footer-banner">
-          <ShieldCheck size={16} className="text-success" />
-          <span>Privacy confirmed: Uploaded photos have been discarded from server memory.</span>
+          <ShieldCheck size={15} className="text-gold" />
+          <span>
+            Verified Zero-Trace Session: Uploaded imagery was processed strictly in RAM and has been wiped from server memory.
+          </span>
         </div>
       </div>
     </section>

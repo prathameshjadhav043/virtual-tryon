@@ -120,3 +120,16 @@ export function formatBytes(bytes: number, decimals: number = 1): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
+
+/**
+ * Loads a preset image asset from URL and converts it to ProcessedImage
+ */
+export async function loadPresetImage(url: string, filename: string): Promise<ProcessedImage> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch preset image: ${response.statusText}`);
+  }
+  const blob = await response.blob();
+  const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+  return resizeImageToMaxDimension(file, 1024);
+}

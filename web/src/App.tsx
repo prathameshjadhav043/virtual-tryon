@@ -5,22 +5,59 @@ import {
   Shield,
   Loader2,
   ExternalLink,
+  Layers,
+  Wand2,
 } from 'lucide-react';
-import { UploadDropzone } from './components/UploadDropzone';
+import { UploadDropzone, type StudioPreset } from './components/UploadDropzone';
 import { ConsentBanner } from './components/ConsentBanner';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
-import { AdSensePlaceholder } from './components/AdSensePlaceholder';
 import { ResultSection } from './components/ResultSection';
 import { type ProcessedImage } from './lib/image-processor';
 import { trackUploadStarted, trackTryonCompleted, trackTryonFailed } from './lib/analytics';
 
 const WORKER_URL = import.meta.env.VITE_TRYON_WORKER_URL || 'http://localhost:8787';
 
+const MODEL_PRESETS: StudioPreset[] = [
+  {
+    id: 'model-elena',
+    name: 'Elena',
+    subtitle: 'Studio Editorial',
+    url: '/presets/model-female.jpg',
+    filename: 'model-female.jpg',
+  },
+  {
+    id: 'model-julian',
+    name: 'Julian',
+    subtitle: 'Sartorial Tailored',
+    url: '/presets/model-male.jpg',
+    filename: 'model-male.jpg',
+  },
+];
+
+const GARMENT_PRESETS: StudioPreset[] = [
+  {
+    id: 'garment-jacket',
+    name: 'Onyx Biker Jacket',
+    subtitle: 'Black Moto Leather',
+    url: '/presets/garment-jacket.jpg',
+    filename: 'garment-jacket.jpg',
+    description: 'Tailored black biker leather jacket with asymmetric silver hardware',
+  },
+  {
+    id: 'garment-blouse',
+    name: 'Emerald Silk Blouse',
+    subtitle: 'Draped Satin Top',
+    url: '/presets/garment-blouse.jpg',
+    filename: 'garment-blouse.jpg',
+    description: 'Emerald green draped silk satin blouse with pearl cuff details',
+  },
+];
+
 export const App: React.FC = () => {
   const [personImage, setPersonImage] = useState<ProcessedImage | null>(null);
   const [garmentImage, setGarmentImage] = useState<ProcessedImage | null>(null);
   const [garmentDescription, setGarmentDescription] = useState<string>('');
-  const [hasConsented, setHasConsented] = useState<boolean>(false);
+  const [hasConsented, setHasConsented] = useState<boolean>(true); // Pre-check with clear zero-trace notice
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<string>('');
@@ -33,18 +70,18 @@ export const App: React.FC = () => {
 
   const handleTryOn = async () => {
     if (!personImage || !garmentImage) {
-      setErrorMessage('Please upload both a front photo and a product garment image.');
+      setErrorMessage('Please provide both your silhouette photo and a garment image.');
       return;
     }
 
     if (!hasConsented) {
-      setErrorMessage('Please accept the privacy consent checkbox before continuing.');
+      setErrorMessage('Please confirm the zero-trace privacy consent to continue.');
       return;
     }
 
     setErrorMessage(null);
     setIsLoading(true);
-    setLoadingStep('Optimizing & dispatching to Cloudflare Worker proxy...');
+    setLoadingStep('Dispatching in-memory buffers to Cloudflare Worker proxy...');
     const startTime = performance.now();
 
     // Fire upload_started telemetry (strictly sanitized metadata)
@@ -61,7 +98,7 @@ export const App: React.FC = () => {
         formData.append('garment_description', garmentDescription.trim());
       }
 
-      setLoadingStep('Inference in progress on Hugging Face (IDM-VTON diffusion model)...');
+      setLoadingStep('Synthesizing neural draping on Hugging Face (IDM-VTON diffusion model)...');
 
       const response = await fetch(`${WORKER_URL}/tryon`, {
         method: 'POST',
@@ -111,25 +148,32 @@ export const App: React.FC = () => {
     setErrorMessage(null);
   };
 
+  const handleGarmentPresetSelect = (preset: StudioPreset) => {
+    if (preset.description) {
+      setGarmentDescription(preset.description);
+    }
+  };
+
   return (
     <div className="app-container">
       {/* Background Decorative Ambient Gradients */}
-      <div className="ambient-blur ambient-1" />
-      <div className="ambient-blur ambient-2" />
+      <div className="ambient-blur ambient-gold" />
+      <div className="ambient-blur ambient-violet" />
+      <div className="ambient-grid-overlay" />
 
       {/* Header */}
       <header className="app-header">
         <div className="header-container">
           <div className="brand-group">
-            <div className="brand-icon">
-              <Sparkles size={22} className="text-accent" />
+            <div className="brand-monogram">
+              <Sparkles size={18} className="text-gold" />
             </div>
             <div>
               <div className="brand-title-row">
-                <h1 className="brand-title">FitCraft AI</h1>
-                <span className="free-badge">Zero Budget • 100% Free</span>
+                <h1 className="brand-title">ATELIER AI</h1>
+                <span className="couture-badge">HAUTE COUTURE STUDIO</span>
               </div>
-              <p className="brand-tagline">Open-Source AI Virtual Try-On Studio</p>
+              <p className="brand-tagline">Generative Neural Fitting Engine</p>
             </div>
           </div>
 
@@ -139,8 +183,8 @@ export const App: React.FC = () => {
               className="text-link-btn"
               onClick={() => setIsPrivacyModalOpen(true)}
             >
-              <Shield size={16} />
-              <span>Zero-Storage Guarantee</span>
+              <Shield size={14} className="text-gold" />
+              <span>Zero-Trace Privacy</span>
             </button>
           </div>
         </div>
@@ -148,36 +192,35 @@ export const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="main-content">
-        {/* Top AdSense Banner Placeholder */}
-        <AdSensePlaceholder slotName="Header Leaderboard" format="leaderboard" />
-
         {/* Hero Section */}
         <section className="hero-section">
-          <span className="hero-pill">
-            <Sparkles size={14} className="text-accent" /> Powered by IDM-VTON & Gradio
-          </span>
+          <div className="hero-pill">
+            <Wand2 size={13} className="text-gold" />
+            <span>IDM-VTON Neural Diffusion Engine</span>
+          </div>
           <h2 className="hero-heading">
-            Preview any outfit on <span className="gradient-text">your real photo</span>
+            Preview any garment on <span className="gold-shimmer-text">your real silhouette</span>
           </h2>
           <p className="hero-subheading">
-            Upload your front photo and any garment. Our edge worker runs the try-on diffusion model
-            ephemerally in memory—no accounts, no subscriptions, and zero photos stored.
+            Photorealistic AI virtual fitting with zero digital footprint. Select a studio look to test instantly,
+            or upload your own silhouette and any clothing item.
           </p>
         </section>
 
-        {/* Upload Studio Grid */}
+        {/* Studio Upload Workspace */}
         <div className="upload-grid-container">
           <div className="upload-columns">
             {/* Person Photo Card */}
             <div className="column-card">
               <UploadDropzone
                 id="person-photo-uploader"
-                title="Your Front Photo"
-                subtitle="Full body or torso facing front. Clear lighting gives best results."
-                badge="Required"
+                title="Your Silhouette"
+                subtitle="Full body or torso facing front in neutral lighting"
+                badge="Step 01"
                 image={personImage}
                 onImageChange={setPersonImage}
                 disabled={isLoading}
+                presets={MODEL_PRESETS}
               />
             </div>
 
@@ -185,23 +228,26 @@ export const App: React.FC = () => {
             <div className="column-card">
               <UploadDropzone
                 id="garment-photo-uploader"
-                title="Garment / Product Image"
-                subtitle="Clean product shot, model photo, or transparent garment PNG."
-                badge="Required"
+                title="Garment Item"
+                subtitle="Clean product shot, model photo, or garment cutout"
+                badge="Step 02"
                 image={garmentImage}
                 onImageChange={setGarmentImage}
                 disabled={isLoading}
+                presets={GARMENT_PRESETS}
+                onPresetSelect={handleGarmentPresetSelect}
               />
 
-              <div className="optional-inputs">
+              <div className="garment-detail-card">
                 <label htmlFor="garment-description-input" className="input-label">
-                  Garment description (optional)
+                  <Layers size={13} className="text-gold" />
+                  <span>Garment description (optional)</span>
                 </label>
                 <input
                   id="garment-description-input"
                   type="text"
                   className="text-input"
-                  placeholder="e.g. Vintage oversized denim jacket or Floral silk blouse"
+                  placeholder="e.g. Tailored black leather biker jacket with silver hardware"
                   value={garmentDescription}
                   onChange={(e) => setGarmentDescription(e.target.value)}
                   disabled={isLoading}
@@ -223,11 +269,11 @@ export const App: React.FC = () => {
             <div className="error-banner" role="alert">
               <AlertCircle size={20} className="error-icon" />
               <div className="error-details">
-                <p className="error-title">Try-On Could Not Complete</p>
+                <p className="error-title">Fitting Could Not Complete</p>
                 <p className="error-message">{errorMessage}</p>
                 {errorMessage.includes('Failed to fetch') && (
                   <p className="error-hint">
-                    Check that your Cloudflare Worker is running locally on port 8787 or deployed.
+                    Check that your edge worker is active on port 8787.
                   </p>
                 )}
               </div>
@@ -245,24 +291,28 @@ export const App: React.FC = () => {
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={20} className="spin-icon" />
-                  <span>Synthesizing Try-On...</span>
+                  <Loader2 size={18} className="spin-icon" />
+                  <span>Synthesizing Haute Couture...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles size={20} />
-                  <span>Generate Virtual Try-On</span>
+                  <Sparkles size={18} className="text-gold" />
+                  <span>Synthesize Virtual Fitting</span>
                 </>
               )}
             </button>
 
             {isLoading && (
               <div className="loading-status-bar">
-                <div className="progress-pulse-line"></div>
-                <p className="loading-step-text">{loadingStep}</p>
-                <p className="loading-subtext">
-                  (Free Hugging Face spaces take 15–45s depending on GPU queue)
-                </p>
+                <div className="progress-pulse-line">
+                  <div className="progress-shimmer"></div>
+                </div>
+                <div className="loading-milestones">
+                  <p className="loading-step-text">{loadingStep}</p>
+                  <p className="loading-subtext">
+                    IDM-VTON runs in ephemeral GPU memory • 15–30s
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -278,11 +328,6 @@ export const App: React.FC = () => {
             onReset={handleReset}
           />
         )}
-
-        {/* Bottom AdSense Placeholder */}
-        <div className="bottom-ad-wrapper">
-          <AdSensePlaceholder slotName="Footer Banner Slot" format="leaderboard" />
-        </div>
       </main>
 
       {/* Footer */}
@@ -290,10 +335,10 @@ export const App: React.FC = () => {
         <div className="footer-container">
           <div className="footer-left">
             <p className="footer-copyright">
-              © {new Date().getFullYear()} FitCraft AI. Built with zero paid APIs.
+              © {new Date().getFullYear()} ATELIER AI. Ephemeral Virtual Haute Couture Studio.
             </p>
             <p className="footer-subtext">
-              Cloudflare Worker Edge Proxy • React 18 + Vite • Hugging Face Space Engine
+              Cloudflare Worker Edge Proxy • React 18 + Vite • IDM-VTON Neural Architecture
             </p>
           </div>
           <div className="footer-links">
@@ -302,7 +347,7 @@ export const App: React.FC = () => {
               className="footer-link-btn"
               onClick={() => setIsPrivacyModalOpen(true)}
             >
-              Privacy Policy
+              Zero-Trace Privacy Policy
             </button>
             <span className="dot">•</span>
             <a
@@ -311,7 +356,7 @@ export const App: React.FC = () => {
               rel="noopener noreferrer"
               className="footer-external-link"
             >
-              <span>IDM-VTON Model</span>
+              <span>Diffusion Architecture</span>
               <ExternalLink size={12} />
             </a>
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 interface ConsentBannerProps {
   hasConsented: boolean;
@@ -14,9 +14,11 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
 }) => {
   return (
     <div className="consent-container">
-      <div className="consent-card">
+      <div className={`consent-card ${hasConsented ? 'consented' : ''}`}>
         <div className="consent-icon-col">
-          <ShieldCheck size={20} className="shield-icon" />
+          <div className="shield-badge">
+            <Lock size={15} className="shield-icon" />
+          </div>
         </div>
         <div className="consent-content-col">
           <label htmlFor="privacy-consent-checkbox" className="consent-label">
@@ -28,8 +30,8 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
               onChange={(e) => onConsentChange(e.target.checked)}
             />
             <span className="consent-text">
-              I consent to temporary, in-memory AI processing of my uploaded photo. I understand that{' '}
-              <strong>photos are never stored</strong> and are discarded immediately after rendering.{' '}
+              I consent to ephemeral in-memory neural synthesis of my uploaded photo.{' '}
+              <span className="highlight-pill">No photos are stored</span> on any persistent disk or database and are immediately discarded post-inference.{' '}
               <button
                 type="button"
                 className="privacy-link-btn"
@@ -38,7 +40,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
                   onOpenPrivacyModal();
                 }}
               >
-                Read Privacy Policy
+                Read Zero-Trace Policy
               </button>
             </span>
           </label>
