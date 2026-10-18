@@ -1,0 +1,23 @@
+{
+  "name": "virtual-tryon-worker",
+  "version": "1.0.0",
+  "description": "Zero-budget AI Virtual Try-On Cloudflare Worker proxy",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "keywords": ["cloudflare-workers", "virtual-tryon", "gradio", "huggingface"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241018.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.80.5"
+  },
+  "dependencies": {
+    "@gradio/client": "^1.8.0"
+  }
+}
