@@ -1,5 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
+import { getAuth, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,6 +14,7 @@ const firebaseConfig = {
 
 let app: FirebaseApp | null = null;
 let analyticsInstance: Analytics | null = null;
+let authInstance: Auth | null = null;
 
 // Only initialize if project ID is provided
 if (firebaseConfig.projectId && firebaseConfig.apiKey) {
@@ -20,6 +22,10 @@ if (firebaseConfig.projectId && firebaseConfig.apiKey) {
     app = initializeApp(firebaseConfig);
   } else {
     app = getApps()[0];
+  }
+
+  if (app) {
+    authInstance = getAuth(app);
   }
 
   // Google Analytics 4 initialization (safe check for browser support and measurement ID)
@@ -32,4 +38,4 @@ if (firebaseConfig.projectId && firebaseConfig.apiKey) {
   }
 }
 
-export { app, analyticsInstance };
+export { app, analyticsInstance, authInstance };

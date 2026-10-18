@@ -1,5 +1,6 @@
 export interface Env {
   ALLOWED_ORIGIN?: string;
+  FIREBASE_API_KEY?: string;
   HF_SPACE?: string;
   HF_TOKEN?: string;
 }
@@ -28,4 +29,5 @@ export interface TryOnSuccessResponse {
   imageUrl: string;
   contentType: string;
   spaceUsed: string;
+  results: Array<TryOnResult & { garmentImageIndex: number }>;
 }

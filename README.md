@@ -1,6 +1,6 @@
 # FitCraft AI - One-Page AI Virtual Try-On Studio (Zero Budget)
 
-A production-ready, zero-budget AI virtual try-on application. Built with **React 18 + Vite + TypeScript** on the frontend, an edge **Cloudflare Worker** as a secure proxy, and open-source diffusion models (default: **IDM-VTON** on Hugging Face Spaces) via `@gradio/client`.
+A virtual try-on prototype built with **React 18 + Vite + TypeScript**, **Firebase Authentication and Analytics**, and a **Cloudflare Worker** forwarding requests to the shared **IDM-VTON** Hugging Face Space. The current model is for development and non-commercial evaluation; see the license note below before using it in a paid product.
 
 ---
 
@@ -34,10 +34,10 @@ A production-ready, zero-budget AI virtual try-on application. Built with **Reac
                       +---------------------------------------+
 ```
 
-### Strict Zero-Storage & Zero-Budget Guarantees
-- **No Disk or Database Storage for Photos**: User photos are downscaled in client browser RAM, forwarded in-memory via Cloudflare Worker, processed by the model, and discarded immediately.
-- **Spark Plan Safe**: No Firebase Cloud Storage or Cloud Functions are used, keeping the app strictly within the free Firebase Spark plan.
-- **Privacy-Preserving Telemetry**: Google Analytics 4 tracks only operational telemetry (`upload_started`, `tryon_completed`, `tryon_failed`). No image URLs, filenames, or user identifiers are ever recorded.
+### Service and Data Notes
+- **Photo path**: Images are resized in the browser, sent to the Cloudflare Worker, then forwarded to the Hugging Face Space. This app does not write photos to Firebase Storage, but the AI provider's handling is governed by its own policies.
+- **Authentication**: Firebase Authentication provides Google sign-in. The Worker verifies the Firebase ID token before starting inference.
+- **Analytics**: Google Analytics 4 receives app events (`login`, `logout`, `tryon_started`, `tryon_completed`, `tryon_failed`) and operational metadata. Custom event payloads do not contain images, filenames, email addresses, or Firebase UIDs.
 
 ---
 
@@ -186,12 +186,22 @@ HTTP/1.1 415 Unsupported Media Type
 
 ## Manual Steps You Must Complete
 
+### Google Sign-In & Activity Analytics
+1. In Firebase Console, open **Authentication -> Sign-in method** and enable **Google**.
+2. Add your local and production site domains under **Authentication -> Settings -> Authorized domains**.
+3. Make sure `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, and `VITE_FIREBASE_MEASUREMENT_ID` are set in `web/.env.local` for local development. Restart the Vite server after changing environment values.
+4. In Google Analytics, open the linked GA4 property to review the `login`, `logout`, `tryon_started`, `tryon_completed`, and `tryon_failed` events. Event payloads do not include the user's email, Firebase UID, filenames, or image data.
+
 ### Step 1: Hugging Face User Access Token (Free)
 1. Go to [Hugging Face](https://huggingface.co/) and create a free account (if you don't have one).
 2. Go to **Settings -> Access Tokens -> Create new token**.
 3. Choose **Read** permissions.
 4. Copy the token (`hf_...`).
 5. (Optional) You can duplicate `yisol/IDM-VTON` to your own free ZeroGPU Space if you want dedicated queue priority.
+
+For local worker development, add the Firebase Web API key to `worker/.dev.vars` as `FIREBASE_API_KEY=...` so the Worker can verify signed-in users.
+
+> **Development use only:** signing in to this website gates access to its shared Hugging Face model; it does not create a per-user Hugging Face quota. The official IDM-VTON code and checkpoints are licensed CC BY-NC-SA 4.0, so get separate commercial permission before using this model in a paid product.
 
 ### Step 2: Cloudflare Worker Setup & Secrets
 1. Create a free account at [Cloudflare](https://dash.cloudflare.com/).
@@ -205,9 +215,10 @@ HTTP/1.1 415 Unsupported Media Type
    npx wrangler secret put HF_TOKEN
    # Paste your Hugging Face token when prompted
 
-   npx wrangler secret put ALLOWED_ORIGIN
-   # Set to your Firebase Hosting domain (e.g. https://your-project.web.app)
+   npx wrangler secret put FIREBASE_API_KEY
+   # Paste the Firebase Web API key for the same Firebase project as the frontend
    ```
+   Set `ALLOWED_ORIGIN` in `worker/wrangler.jsonc` to your production Firebase Hosting domain (for example `https://your-project.web.app`).
 4. Deploy the Worker:
    ```bash
    npx wrangler deploy
@@ -218,7 +229,7 @@ HTTP/1.1 415 Unsupported Media Type
 1. Go to the [Firebase Console](https://console.firebase.google.com/) and click **Add Project**.
 2. Enable **Google Analytics** during project creation (free).
 3. When the project is ready, click **Web** (`</>`) to register a web app.
-4. Copy the `firebaseConfig` keys into `web/.env`:
+4. Copy the `firebaseConfig` keys into `web/.env.local`:
    ```ini
    VITE_TRYON_WORKER_URL=https://virtual-tryon-worker.<your-subdomain>.workers.dev
    VITE_FIREBASE_API_KEY=AIzaSy...

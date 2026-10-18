@@ -21,6 +21,38 @@ export interface TryonFailedParams {
   duration_ms?: number;
 }
 
+export function trackGoogleLogin(): void {
+  try {
+    if (analyticsInstance) {
+      logEvent(analyticsInstance, 'login', { method: 'google' });
+    }
+  } catch (err) {
+    console.debug('[GA4] login event ignored:', err);
+  }
+}
+
+export function trackLogout(): void {
+  try {
+    if (analyticsInstance) {
+      logEvent(analyticsInstance, 'logout', { method: 'google' });
+    }
+  } catch (err) {
+    console.debug('[GA4] logout event ignored:', err);
+  }
+}
+
+export function trackTryonStarted(garmentViewCount: number): void {
+  try {
+    if (analyticsInstance) {
+      logEvent(analyticsInstance, 'tryon_started', {
+        garment_view_count: garmentViewCount,
+      });
+    }
+  } catch (err) {
+    console.debug('[GA4] tryon_started event ignored:', err);
+  }
+}
+
 /**
  * Dispatches upload_started event to GA4
  */

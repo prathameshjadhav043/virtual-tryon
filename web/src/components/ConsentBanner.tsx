@@ -30,8 +30,8 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
               onChange={(e) => onConsentChange(e.target.checked)}
             />
             <span className="consent-text">
-              I consent to ephemeral in-memory neural synthesis of my uploaded photo.{' '}
-              <span className="highlight-pill">No photos are stored</span> on any persistent disk or database and are immediately discarded post-inference.{' '}
+              I agree to send my selected photos to the AI try-on service for processing. I understand{' '}
+              <span className="highlight-pill">Google sign-in and usage analytics are used</span>; app events do not include my photo or email.{' '}
               <button
                 type="button"
                 className="privacy-link-btn"
@@ -40,7 +40,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
                   onOpenPrivacyModal();
                 }}
               >
-                Read Zero-Trace Policy
+                Read data handling
               </button>
             </span>
           </label>

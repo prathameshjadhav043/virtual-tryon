@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Download,
   RotateCcw,
@@ -13,22 +13,34 @@ import type { ProcessedImage } from '../lib/image-processor';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
 
 interface ResultSectionProps {
-  resultUrl: string;
+  results: Array<{
+    imageUrl: string;
+    contentType: string;
+    spaceUsed: string;
+    garmentImageIndex: number;
+  }>;
   personImage: ProcessedImage | null;
-  garmentImage: ProcessedImage | null;
+  garmentImages: ProcessedImage[];
   modelSpace?: string;
   onReset: () => void;
 }
 
 export const ResultSection: React.FC<ResultSectionProps> = ({
-  resultUrl,
+  results,
   personImage,
-  garmentImage,
+  garmentImages,
   modelSpace,
   onReset,
 }) => {
   const [viewMode, setViewMode] = useState<'slider' | 'side-by-side' | 'spotlight'>('slider');
+  const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [copied, setCopied] = useState<boolean>(false);
+  useEffect(() => {
+    setSelectedResultIndex(0);
+  }, [results]);
+  const selectedResult = results[selectedResultIndex] || results[0];
+  const resultUrl = selectedResult?.imageUrl || '';
+  const garmentImage = garmentImages[selectedResult?.garmentImageIndex ?? 0] || garmentImages[0] || null;
 
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -53,7 +65,8 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
             <div>
               <h2 className="result-title">Atelier Synthesis Complete</h2>
               <p className="result-subtitle">
-                Rendered with high-fidelity diffusion ({modelSpace || 'IDM-VTON'}) • Ephemeral In-Memory Buffer
+                {results.length > 1 ? `Generated ${results.length} garment angle views with ` : 'Rendered with '}
+                {modelSpace || 'IDM-VTON'} • Results shown in this browser session
               </p>
             </div>
           </div>
@@ -115,6 +128,29 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
           </div>
         </div>
 
+        {results.length > 1 && (
+          <div className="result-angle-picker" role="group" aria-label="Choose garment angle result">
+            <span className="result-angle-picker-label">Compare garment views</span>
+            <div className="result-angle-options">
+              {results.map((result, index) => {
+                const sourceImage = garmentImages[result.garmentImageIndex] || garmentImages[0];
+                return (
+                  <button
+                    key={`${result.garmentImageIndex}-${index}`}
+                    type="button"
+                    className={`result-angle-option ${selectedResultIndex === index ? 'active' : ''}`}
+                    onClick={() => setSelectedResultIndex(index)}
+                    aria-pressed={selectedResultIndex === index}
+                  >
+                    {sourceImage && <img src={sourceImage.dataUrl} alt="" aria-hidden="true" />}
+                    <span>View {index + 1}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Display Canvas */}
         <div className="result-display-area">
           {viewMode === 'slider' && personImage ? (
@@ -123,7 +159,7 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
                 beforeImage={personImage.dataUrl}
                 afterImage={resultUrl}
                 beforeLabel="Original Silhouette"
-                afterLabel="Atelier Haute Couture"
+                afterLabel={`Try-On · View ${selectedResultIndex + 1}`}
               />
               <p className="slider-instruction">
                 Drag the divider or use keyboard arrows to inspect garment draping and texture integration
@@ -167,7 +203,7 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
         <div className="result-footer-banner">
           <ShieldCheck size={15} className="text-gold" />
           <span>
-            Verified Zero-Trace Session: Uploaded imagery was processed strictly in RAM and has been wiped from server memory.
+            Results are shown in this browser session and are not added to your account history.
           </span>
         </div>
       </div>

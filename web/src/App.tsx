@@ -1,19 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
   Sparkles,
   AlertCircle,
   Shield,
   Loader2,
   ExternalLink,
-  Layers,
   Wand2,
 } from 'lucide-react';
 import { UploadDropzone, type StudioPreset } from './components/UploadDropzone';
+import { GarmentSourcePanel, type GarmentSourceMode } from './components/GarmentSourcePanel';
 import { ConsentBanner } from './components/ConsentBanner';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { ResultSection } from './components/ResultSection';
+import { AuthControl } from './components/AuthControl';
 import { type ProcessedImage } from './lib/image-processor';
-import { trackUploadStarted, trackTryonCompleted, trackTryonFailed } from './lib/analytics';
+import { authInstance } from './lib/firebase';
+import { signInWithGoogle, signOutUser } from './lib/auth';
+import {
+  trackGoogleLogin,
+  trackLogout,
+  trackTryonStarted,
+  trackUploadStarted,
+  trackTryonCompleted,
+  trackTryonFailed,
+} from './lib/analytics';
 
 const WORKER_URL = import.meta.env.VITE_TRYON_WORKER_URL || 'http://localhost:8787';
 
@@ -53,55 +64,124 @@ const GARMENT_PRESETS: StudioPreset[] = [
   },
 ];
 
+interface TryOnView {
+  imageUrl: string;
+  contentType: string;
+  spaceUsed: string;
+  garmentImageIndex: number;
+}
+
 export const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [personImage, setPersonImage] = useState<ProcessedImage | null>(null);
-  const [garmentImage, setGarmentImage] = useState<ProcessedImage | null>(null);
+  const [garmentImages, setGarmentImages] = useState<ProcessedImage[]>([]);
+  const [garmentSourceMode, setGarmentSourceMode] = useState<GarmentSourceMode>('image');
+  const [productUrl, setProductUrl] = useState<string>('');
   const [garmentDescription, setGarmentDescription] = useState<string>('');
-  const [hasConsented, setHasConsented] = useState<boolean>(true); // Pre-check with clear zero-trace notice
+  const [hasConsented, setHasConsented] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [tryOnViews, setTryOnViews] = useState<TryOnView[]>([]);
   const [modelSpaceUsed, setModelSpaceUsed] = useState<string>('yisol/IDM-VTON');
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
 
-  const canSubmit = Boolean(personImage && garmentImage && hasConsented && !isLoading);
+  useEffect(() => {
+    if (!authInstance) {
+      setAuthReady(true);
+      return;
+    }
+
+    return onAuthStateChanged(authInstance, (authenticatedUser) => {
+      setUser(authenticatedUser);
+      setAuthReady(true);
+    });
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    await signInWithGoogle();
+    trackGoogleLogin();
+  };
+
+  const handleSignOut = async () => {
+    trackLogout();
+    await signOutUser();
+    setTryOnViews([]);
+    setHasConsented(false);
+  };
+
+  const hasGarmentSource = garmentSourceMode === 'image'
+    ? garmentImages.length > 0
+    : garmentSourceMode === 'link'
+      ? Boolean(productUrl.trim())
+      : Boolean(garmentDescription.trim());
+  const canSubmit = Boolean(authReady && user && personImage && hasGarmentSource && hasConsented && !isLoading);
 
   const handleTryOn = async () => {
-    if (!personImage || !garmentImage) {
-      setErrorMessage('Please provide both your silhouette photo and a garment image.');
+    if (!user) {
+      setErrorMessage('Sign in with Google before generating a virtual fitting.');
+      return;
+    }
+
+    if (!personImage || !hasGarmentSource) {
+      setErrorMessage('Please provide your silhouette photo and choose a garment source.');
+      return;
+    }
+
+    if (garmentSourceMode !== 'image') {
+      setErrorMessage(
+        garmentSourceMode === 'link'
+          ? 'Product-link fitting is not connected yet. Choose Upload image to generate a fitting.'
+          : 'Description-only fitting is not connected yet. Choose Upload image to generate a fitting.'
+      );
+      return;
+    }
+
+    if (garmentImages.length === 0) {
+      setErrorMessage('Please upload a garment image to generate a fitting.');
       return;
     }
 
     if (!hasConsented) {
-      setErrorMessage('Please confirm the zero-trace privacy consent to continue.');
+      setErrorMessage('Please accept the photo processing notice to continue.');
       return;
     }
 
     setErrorMessage(null);
     setIsLoading(true);
-    setLoadingStep('Dispatching in-memory buffers to Cloudflare Worker proxy...');
+    setLoadingStep(
+      `Preparing ${garmentImages.length} garment view${garmentImages.length === 1 ? '' : 's'} for synthesis...`
+    );
     const startTime = performance.now();
 
     // Fire upload_started telemetry (strictly sanitized metadata)
     trackUploadStarted({
       person_image_size_kb: Math.round(personImage.processedSizeBytes / 1024),
-      garment_image_size_kb: Math.round(garmentImage.processedSizeBytes / 1024),
+      garment_image_size_kb: Math.round(
+        garmentImages.reduce((total, image) => total + image.processedSizeBytes, 0) / 1024
+      ),
     });
+    trackTryonStarted(garmentImages.length);
 
     try {
       const formData = new FormData();
       formData.append('person_image', personImage.file);
-      formData.append('garment_image', garmentImage.file);
+      garmentImages.forEach((image) => formData.append('garment_image', image.file));
       if (garmentDescription.trim()) {
         formData.append('garment_description', garmentDescription.trim());
       }
 
-      setLoadingStep('Synthesizing neural draping on Hugging Face (IDM-VTON diffusion model)...');
+      setLoadingStep(
+        `Generating one try-on result for each of the ${garmentImages.length} garment view${garmentImages.length === 1 ? '' : 's'}...`
+      );
+
+      const idToken = await user.getIdToken();
 
       const response = await fetch(`${WORKER_URL}/tryon`, {
         method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
         body: formData,
       });
 
@@ -114,14 +194,26 @@ export const App: React.FC = () => {
       }
 
       const durationMs = performance.now() - startTime;
+      const generatedViews: TryOnView[] = Array.isArray(responseData.results)
+        ? responseData.results
+        : [{
+            imageUrl: responseData.imageUrl,
+            contentType: responseData.contentType || 'image/png',
+            spaceUsed: responseData.spaceUsed || 'yisol/IDM-VTON',
+            garmentImageIndex: 0,
+          }];
+      if (generatedViews.length === 0 || !generatedViews[0].imageUrl) {
+        throw new Error('The try-on service returned no result images.');
+      }
+
       trackTryonCompleted({
         duration_ms: durationMs,
-        model_space: responseData.spaceUsed,
+        model_space: generatedViews[0].spaceUsed,
       });
 
-      setResultUrl(responseData.imageUrl);
-      if (responseData.spaceUsed) {
-        setModelSpaceUsed(responseData.spaceUsed);
+      setTryOnViews(generatedViews);
+      if (generatedViews[0].spaceUsed) {
+        setModelSpaceUsed(generatedViews[0].spaceUsed);
       }
 
       // Smooth scroll to result area
@@ -144,7 +236,7 @@ export const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    setResultUrl(null);
+    setTryOnViews([]);
     setErrorMessage(null);
   };
 
@@ -178,13 +270,19 @@ export const App: React.FC = () => {
           </div>
 
           <div className="header-actions">
+            <AuthControl
+              user={user}
+              ready={authReady}
+              onSignIn={handleGoogleSignIn}
+              onSignOut={handleSignOut}
+            />
             <button
               type="button"
               className="text-link-btn"
               onClick={() => setIsPrivacyModalOpen(true)}
             >
               <Shield size={14} className="text-gold" />
-              <span>Zero-Trace Privacy</span>
+              <span>Privacy &amp; Data Handling</span>
             </button>
           </div>
         </div>
@@ -202,7 +300,7 @@ export const App: React.FC = () => {
             Preview any garment on <span className="gold-shimmer-text">your real silhouette</span>
           </h2>
           <p className="hero-subheading">
-            Photorealistic AI virtual fitting with zero digital footprint. Select a studio look to test instantly,
+            Photorealistic AI virtual fitting. Select a studio look to test instantly,
             or upload your own silhouette and any clothing item.
           </p>
         </section>
@@ -226,34 +324,19 @@ export const App: React.FC = () => {
 
             {/* Garment Image Card */}
             <div className="column-card">
-              <UploadDropzone
-                id="garment-photo-uploader"
-                title="Garment Item"
-                subtitle="Clean product shot, model photo, or garment cutout"
-                badge="Step 02"
-                image={garmentImage}
-                onImageChange={setGarmentImage}
+              <GarmentSourcePanel
+                mode={garmentSourceMode}
+                onModeChange={setGarmentSourceMode}
+                images={garmentImages}
+                onImagesChange={setGarmentImages}
+                productUrl={productUrl}
+                onProductUrlChange={setProductUrl}
+                description={garmentDescription}
+                onDescriptionChange={setGarmentDescription}
                 disabled={isLoading}
                 presets={GARMENT_PRESETS}
                 onPresetSelect={handleGarmentPresetSelect}
               />
-
-              <div className="garment-detail-card">
-                <label htmlFor="garment-description-input" className="input-label">
-                  <Layers size={13} className="text-gold" />
-                  <span>Garment description (optional)</span>
-                </label>
-                <input
-                  id="garment-description-input"
-                  type="text"
-                  className="text-input"
-                  placeholder="e.g. Tailored black leather biker jacket with silver hardware"
-                  value={garmentDescription}
-                  onChange={(e) => setGarmentDescription(e.target.value)}
-                  disabled={isLoading}
-                  maxLength={100}
-                />
-              </div>
             </div>
           </div>
 
@@ -276,12 +359,22 @@ export const App: React.FC = () => {
                     Check that your edge worker is active on port 8787.
                   </p>
                 )}
+                {errorMessage.includes('ZeroGPU quota') && (
+                  <p className="error-hint">
+                    The shared Hugging Face GPU capacity is busy or limited. Try again later. A Google sign-in does not add dedicated model capacity.
+                  </p>
+                )}
               </div>
             </div>
           )}
 
           {/* Action Trigger */}
           <div className="action-row">
+            {!user && (
+              <p className="signin-required-note">
+                Sign in with Google to use the shared free try-on model.
+              </p>
+            )}
             <button
               id="tryon-submit-btn"
               type="button"
@@ -310,7 +403,9 @@ export const App: React.FC = () => {
                 <div className="loading-milestones">
                   <p className="loading-step-text">{loadingStep}</p>
                   <p className="loading-subtext">
-                    IDM-VTON runs in ephemeral GPU memory • 15–30s
+                    {garmentImages.length > 1
+                      ? `One separate inference per garment view (${garmentImages.length} total)`
+                      : 'The shared Hugging Face model may queue your request'}
                   </p>
                 </div>
               </div>
@@ -319,11 +414,11 @@ export const App: React.FC = () => {
         </div>
 
         {/* Result Area */}
-        {resultUrl && (
+        {tryOnViews.length > 0 && (
           <ResultSection
-            resultUrl={resultUrl}
+            results={tryOnViews}
             personImage={personImage}
-            garmentImage={garmentImage}
+            garmentImages={garmentImages}
             modelSpace={modelSpaceUsed}
             onReset={handleReset}
           />
@@ -347,7 +442,7 @@ export const App: React.FC = () => {
               className="footer-link-btn"
               onClick={() => setIsPrivacyModalOpen(true)}
             >
-              Zero-Trace Privacy Policy
+              Privacy &amp; Data Handling
             </button>
             <span className="dot">•</span>
             <a

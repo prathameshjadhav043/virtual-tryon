@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shield, Lock, EyeOff, Server, Trash2 } from 'lucide-react';
+import { X, Shield, Lock, EyeOff, Server, Trash2, UserRound } from 'lucide-react';
 
 interface PrivacyPolicyModalProps {
   isOpen: boolean;
@@ -16,8 +16,8 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           <div className="modal-title-group">
             <Shield className="modal-icon text-accent" size={24} />
             <div>
-              <h2 className="modal-title">Privacy Policy & Photo Handling</h2>
-              <p className="modal-subtitle">Zero-Storage Commitment & Data Safeguards</p>
+              <h2 className="modal-title">Privacy & Data Handling</h2>
+              <p className="modal-subtitle">How photos, sign-in, and activity analytics are used</p>
             </div>
           </div>
           <button
@@ -33,52 +33,55 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
         <div className="modal-body">
           <div className="privacy-pill-banner">
             <Lock size={16} />
-            <span>We never store, persist, sell, or train models on your uploaded photos.</span>
+            <span>Your photos are sent to the selected try-on provider. Avoid uploading sensitive photos.</span>
           </div>
 
           <div className="policy-section">
             <h3 className="section-title">
               <Trash2 size={18} className="inline-icon text-success" />
-              1. Zero-Storage Architecture
+              1. Photo Processing
             </h3>
             <p>
-              When you upload a photo, it is resized locally in your web browser using HTML5 Canvas.
-              It is transmitted over an encrypted HTTPS connection to our serverless edge proxy
-              (Cloudflare Worker) solely for in-memory forwarding to the AI try-on inference engine.
-              The images are never written to any database, disk, cloud bucket, or persistent storage.
+              Photos are resized in your browser, sent over HTTPS to our Cloudflare Worker, and forwarded
+              to the Hugging Face IDM-VTON Space for generation. This app does not save photos to a
+              Firebase database or storage bucket. The AI provider may process or retain request data
+              under its own policies, so we cannot promise zero storage by every service involved.
             </p>
           </div>
 
           <div className="policy-section">
             <h3 className="section-title">
               <Server size={18} className="inline-icon text-accent" />
-              2. Ephemeral AI Inference
+              2. Google Sign-In
             </h3>
             <p>
-              Virtual try-on generation is performed using open-source diffusion models (e.g., IDM-VTON).
-              Once the result image is computed and returned to your browser session, the input images
-              are discarded from memory.
+              Google sign-in is provided by Firebase Authentication. Firebase receives the account
+              information needed to authenticate you. The app uses your signed-in account to authorize
+              try-on requests; your name and email are not sent as analytics event parameters.
             </p>
           </div>
 
           <div className="policy-section">
             <h3 className="section-title">
               <EyeOff size={18} className="inline-icon text-warning" />
-              3. Privacy-Preserving Analytics
+              3. Usage Analytics
             </h3>
             <p>
-              We use Google Analytics 4 strictly to count operational health and error rates (such as
-              tryon completion counts and performance duration). We explicitly do{' '}
-              <strong>not</strong> log or collect filenames, image content, personal identifiers, or
-              facial metadata in any telemetry stream.
+              Google Analytics 4 tracks sign-in method and operational events such as fitting starts,
+              completions, failures, garment view count, and duration. The app does not include photo
+              content, filenames, email addresses, or Firebase user IDs in these custom events. Google
+              Analytics may collect standard device and usage information as described in Google's policy.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3 className="section-title">4. Third-Party Services & Free Tier Disclosures</h3>
+            <h3 className="section-title">
+              <UserRound size={18} className="inline-icon text-accent" />
+              4. Activity View
+            </h3>
             <p>
-              This app is engineered to run on free-tier infrastructure (Cloudflare Workers, Firebase
-              Hosting, Hugging Face). No personal profile is required to preview outfits during Phase 1.
+              Usage events are available in the connected Google Analytics property. This version does
+              not provide a personal activity-history page inside the app.
             </p>
           </div>
         </div>
