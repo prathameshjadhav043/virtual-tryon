@@ -103,7 +103,25 @@ export async function runTryOn(
       spaceUsed: spaceId,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    console.error("[runTryOn Raw Error]:", error);
+    let message = "Try-on inference failed";
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === "object" && error !== null) {
+      const errObj = error as Record<string, unknown>;
+      if (typeof errObj.message === "string") {
+        message = errObj.message.replace(/^['"]|['"]$/g, "");
+      } else {
+        message = JSON.stringify(error);
+      }
+    } else {
+      message = String(error);
+    }
+
+    if (message.includes("ZeroGPU quota")) {
+      message = `${message} — Add your free Hugging Face token (HF_TOKEN) to worker/.dev.vars for more GPU quota.`;
+    }
+
     throw new Error(`Try-on engine error (${spaceId}): ${message}`);
   }
 }
